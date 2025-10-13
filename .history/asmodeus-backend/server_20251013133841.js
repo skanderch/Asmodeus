@@ -1,9 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import { connectToDB } from './config/database.js';
+import { connectToDB } from '.';
 import dotenv from 'dotenv';
 dotenv.config();
-import userRoutes from './routes/userRoutes.js';
 
 const app = express();
 app.use(cors());
@@ -14,7 +13,6 @@ const PORT = process.env.PORT || 5000;
 app.get('/', (req, res) => {
   res.send('Asmodeus Backend is running 🧠');
 });
-app.use('/api/users', userRoutes);
 
 app.listen(PORT, async () => {
   await connectToDB();

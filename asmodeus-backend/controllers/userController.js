@@ -1,0 +1,78 @@
+import sql from 'mssql';
+import { connectToDB } from '../config/database.js';
+
+export const registerUser = async (req, res) => {
+  const { username, password_hash, full_name, email } = req.body;
+
+  if (!username || !password_hash) {
+    return res.status(400).json({ message: "Username and password are required." });
+  }
+
+  try {
+    const pool = await connectToDB();
+
+    // Valeurs par défaut
+    const role_id = 4; // Viewer par défaut
+    const status = "active";
+
+    const query = `
+      INSERT INTO Users (username, password_hash, full_name, email, role_id, status, created_at)
+      VALUES (@username, @password_hash, @full_name, @email, @role_id, @status, GETDATE())
+    `;
+
+    await pool.request()
+      .input("username", sql.VarChar, username)
+      .input("password_hash", sql.VarChar, password_hash)
+      .input("full_name", sql.VarChar, full_name)
+      .input("email", sql.VarChar, email)
+      .input("role_id", sql.Int, role_id)
+      .input("status", sql.VarChar, status)
+      .query(query);
+
+    res.status(201).json({ message: "✅ User registered successfully as viewer (no module assigned yet)." });
+  } catch (error) {
+    console.error("❌ Registration failed:", error);
+    res.status(500).json({ message: "Error registering user.", error });
+  }
+};
+export const loginUser = async (req, res) => {
+  const { username, password_hash } = req.body;
+
+  if (!username || !password_hash) {
+    return res.status(400).json({ message: "Username and password are required." });
+  }
+
+  try {
+    const pool = await connectToDB();
+
+    const result = await pool.request()
+      .input("username", sql.VarChar, username)
+      .query("SELECT * FROM Users WHERE username = @username");
+
+    const user = result.recordset[0];
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // (Later we’ll hash passwords — for now, plain text comparison)
+    if (user.password_hash !== password_hash) {
+      return res.status(401).json({ message: "Invalid credentials." });
+    }
+
+    res.status(200).json({
+      message: "✅ Login successful.",
+      user: {
+        id: user.user_id,
+        username: user.username,
+        role_id: user.role_id,
+        full_name: user.full_name,
+        email: user.email,
+      },
+    });
+
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Server error during login." });
+  }
+};

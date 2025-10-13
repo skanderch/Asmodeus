@@ -14,7 +14,6 @@ const PORT = process.env.PORT || 5000;
 app.get('/', (req, res) => {
   res.send('Asmodeus Backend is running 🧠');
 });
-app.use('/api/users', userRoutes);
 
 app.listen(PORT, async () => {
   await connectToDB();

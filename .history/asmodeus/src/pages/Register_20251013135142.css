@@ -1,0 +1,13 @@
+.message {
+  margin-top: 15px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.message:has(> [data-success]) {
+  color: green;
+}
+
+.message:has(> [data-error]) {
+  color: red;
+}
