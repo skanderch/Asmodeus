@@ -1,8 +1,10 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"; // ✅ pour redirection
 import "./Register.css";
 
 function Register() {
-  // Form state
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     username: "",
     password_hash: "",
@@ -10,11 +12,9 @@ function Register() {
     email: "",
   });
 
-  // UI feedback
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Handle input change
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -22,7 +22,6 @@ function Register() {
     });
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -32,29 +31,19 @@ function Register() {
       const response = await fetch("http://localhost:5000/api/users/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          role_id: 4, // Viewer role ID
-          status: "active",
-          module_id: null,
-        }),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setMessage("✅ Account created successfully! You can now log in.");
-        setFormData({
-          username: "",
-          password_hash: "",
-          full_name: "",
-          email: "",
-        });
+        setMessage("✅ Account created successfully! Redirecting to login...");
+        setTimeout(() => navigate("/login"), 2000); // ✅ redirige après 2 secondes
       } else {
-        setMessage(`❌ Error: ${data.message || "Registration failed."}`);
+        setMessage(`❌ ${data.message}`);
       }
-    } catch (error) {
-      console.error("Registration error:", error);
+    } catch (err) {
+      console.error("Registration error:", err);
       setMessage("⚠️ Unable to connect to the server.");
     } finally {
       setLoading(false);
@@ -98,6 +87,7 @@ function Register() {
           name="email"
           value={formData.email}
           onChange={handleChange}
+          required
         />
 
         <button type="submit" disabled={loading}>
