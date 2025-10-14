@@ -12,24 +12,24 @@
   margin-bottom: 20px;
 }
 
-form {
+.register-container form {
   display: flex;
   flex-direction: column;
 }
 
-label {
+.register-container label {
   margin-top: 10px;
   font-weight: bold;
 }
 
-input {
+.register-container input {
   margin-top: 5px;
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 6px;
 }
 
-button {
+.register-container button {
   margin-top: 20px;
   padding: 10px;
   background-color: #4b6cb7;
@@ -39,13 +39,28 @@ button {
   cursor: pointer;
 }
 
-button:hover {
+.register-container button:hover {
   background-color: #395591;
 }
 
-.message {
+.register-container .message {
   margin-top: 15px;
   text-align: center;
   font-weight: bold;
   color: #333;
+}
+.register-container .redirect-text {
+  text-align: center;
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.register-container .redirect-text a {
+  color: #4b6cb7;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.register-container .redirect-text a:hover {
+  text-decoration: underline;
 }

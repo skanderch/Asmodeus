@@ -1,7 +1,10 @@
 import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import "./Login.css";
 
 function Login() {
+  const navigate = useNavigate();
+
   const [credentials, setCredentials] = useState({
     username: "",
     password_hash: "",
@@ -32,8 +35,13 @@ function Login() {
       const data = await response.json();
 
       if (response.ok) {
+        // ✅ Sauvegarde utilisateur en localStorage
+        localStorage.setItem("user", JSON.stringify(data.user));
+
         setMessage(`✅ Welcome back, ${data.user.full_name || data.user.username}!`);
-        // Later: save user info or redirect to dashboard
+
+        // ✅ Redirection automatique vers dashboard
+        setTimeout(() => navigate("/dashboard"), 1500);
       } else {
         setMessage(`❌ ${data.message || "Login failed."}`);
       }
@@ -48,6 +56,7 @@ function Login() {
   return (
     <div className="login-container">
       <h2>Login</h2>
+
       <form onSubmit={handleSubmit}>
         <label>Username:</label>
         <input
@@ -73,6 +82,10 @@ function Login() {
 
         {message && <p className="message">{message}</p>}
       </form>
+
+      <p className="redirect-text">
+        Don't have an account? <Link to="/register">Register here</Link>
+      </p>
     </div>
   );
 }

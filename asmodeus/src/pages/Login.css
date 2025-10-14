@@ -12,24 +12,24 @@
     margin-bottom: 20px;
   }
   
-  form {
+  .login-container form {
     display: flex;
     flex-direction: column;
   }
   
-  label {
+  .login-container label {
     margin-top: 10px;
     font-weight: bold;
   }
   
-  input {
+  .login-container input {
     margin-top: 5px;
     padding: 8px;
     border: 1px solid #ccc;
     border-radius: 6px;
   }
   
-  button {
+  .login-container button {
     margin-top: 20px;
     padding: 10px;
     background-color: #4b6cb7;
@@ -39,14 +39,29 @@
     cursor: pointer;
   }
   
-  button:hover {
+  .login-container button:hover {
     background-color: #395591;
   }
   
-  .message {
+  .login-container .message {
     margin-top: 15px;
     text-align: center;
     font-weight: bold;
     color: #333;
+  }
+  .login-container .redirect-text {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 14px;
+  }
+  
+  .login-container .redirect-text a {
+    color: #4b6cb7;
+    text-decoration: none;
+    font-weight: bold;
+  }
+  
+  .login-container .redirect-text a:hover {
+    text-decoration: underline;
   }
   

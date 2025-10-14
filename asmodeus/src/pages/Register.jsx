@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ pour redirection
+import { useNavigate, Link } from "react-router-dom"; // ✅ import Link
 import "./Register.css";
 
 function Register() {
@@ -38,7 +38,7 @@ function Register() {
 
       if (response.ok) {
         setMessage("✅ Account created successfully! Redirecting to login...");
-        setTimeout(() => navigate("/login"), 2000); // ✅ redirige après 2 secondes
+        setTimeout(() => navigate("/login"), 2000);
       } else {
         setMessage(`❌ ${data.message}`);
       }
@@ -96,6 +96,11 @@ function Register() {
 
         {message && <p className="message">{message}</p>}
       </form>
+
+      {/* ✅ Lien vers Login */}
+      <p className="redirect-text">
+        Already have an account? <Link to="/login">Login here</Link>
+      </p>
     </div>
   );
 }
