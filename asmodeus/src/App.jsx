@@ -1,9 +1,10 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home.jsx";
 import Login from "./pages/Login.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
+import Espacecandidat from "./pages/Espacecandidat.jsx";
 import Register from "./pages/Register.jsx";
 import Navbar from "./components/Navbar.jsx";
+import Offres from "./pages/Offres.jsx";
 
 function App() {
   return (
@@ -13,7 +14,8 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/espace" element={<Espacecandidat />} />
+        <Route path="/offres" element={<Offres />} />
       </Routes>
     </Router>
   );

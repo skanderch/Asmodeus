@@ -21,17 +21,30 @@ function Navbar() {
     navigate("/login");
   };
 
+  const handlePostuler = () => {
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) {
+      navigate("/login");
+      return;
+    }
+    navigate("/offres");
+  };
+
   return (
     <nav className="navbar">
       <div className="nav-left">
         <Link to="/">Asmodeus</Link>
+        <Link to="/offres" className="nav-link">Offres d'emploi</Link>
       </div>
 
       <div className="nav-right">
+        <button className="btn-postuler" onClick={handlePostuler}>Postuler</button>
+        {user && (
+          <Link to="/espace">Espace candidat</Link>
+        )}
         {!user ? (
           <>
-            <Link to="/login">Login</Link>
-            <Link to="/register">Register</Link>
+            <Link to="/login">Connexion</Link>
           </>
         ) : (
           <div

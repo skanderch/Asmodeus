@@ -1,0 +1,73 @@
+.offres-page {
+  max-width: 1100px;
+  margin: 20px auto;
+  padding: 0 20px;
+}
+
+.offers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.offer-card {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 16px;
+}
+
+.offer-card h3 {
+  margin: 0 0 6px 0;
+}
+
+.offer-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.offer-description {
+  color: #333;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.offer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: #4b6cb7;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background: #3f5aa0;
+}
+
+.btn-secondary {
+  background: #eef3ff;
+  color: #293b7a;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background: #e2eaff;
+}
+
+

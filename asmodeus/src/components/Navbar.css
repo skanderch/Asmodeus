@@ -6,9 +6,12 @@
   color: white;
   padding: 10px 25px;
   border-radius: 8px;
-  margin: 20px auto;            
+  margin: 0 20px 20px auto;            
   max-width: 1100px;           
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 .nav-left a {
@@ -18,11 +21,31 @@
   font-size: 18px;
 }
 
+.nav-left .nav-link {
+  margin-left: 16px;
+  font-weight: 500;
+}
+
 .nav-right a {
   color: white;
   margin-left: 15px;
   text-decoration: none;
   font-weight: 500;
+}
+
+.btn-postuler {
+  margin-right: 12px;
+  background: #fff;
+  color: #4b6cb7;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-postuler:hover {
+  background: #eaf0ff;
 }
 
 .nav-right a:hover {
