@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./EspaceCanddiat.css";
+import "./EspaceCandidat.css";
 
 function Espacecandidat() {
   const navigate = useNavigate();
