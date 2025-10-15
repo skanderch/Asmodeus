@@ -20,10 +20,12 @@ function Espacecandidat() {
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
+    
     if (!storedUser) {
       navigate("/login");
       return;
     }
+    
     try {
       const parsed = JSON.parse(storedUser);
       setUser(parsed);

@@ -29,13 +29,14 @@ function Login() {
       const response = await fetch("http://localhost:5000/api/users/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Include cookies in the request
         body: JSON.stringify(credentials),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // ✅ Sauvegarde utilisateur en localStorage
+        // ✅ Sauvegarde utilisateur en localStorage (token is now in httpOnly cookie)
         localStorage.setItem("user", JSON.stringify(data.user));
 
         setMessage(`✅ Welcome back, ${data.user.full_name || data.user.username}!`);
@@ -85,6 +86,10 @@ function Login() {
 
       <p className="redirect-text">
         Don't have an account? <Link to="/register">Register here</Link>
+      </p>
+      
+      <p className="redirect-text">
+        <Link to="/forgot-password">Forgot your password?</Link>
       </p>
     </div>
   );

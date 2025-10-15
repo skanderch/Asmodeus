@@ -15,10 +15,21 @@ function Navbar() {
     setUser(storedUser ? JSON.parse(storedUser) : null);
   }, [location]); // se déclenche à chaque changement d’URL
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    setUser(null);
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      // Call logout endpoint to clear httpOnly cookie
+      await fetch("http://localhost:5000/api/users/logout", {
+        method: "POST",
+        credentials: "include", // Include cookies
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      // Clear local storage and redirect regardless of API call result
+      localStorage.removeItem("user");
+      setUser(null);
+      navigate("/login");
+    }
   };
 
   const handlePostuler = () => {
@@ -40,7 +51,12 @@ function Navbar() {
       <div className="nav-right">
         <button className="btn-postuler" onClick={handlePostuler}>Postuler</button>
         {user && (
-          <Link to="/espace">Espace candidat</Link>
+          <>
+            <Link to="/espace">Espace candidat</Link>
+            {user.role_id === 1 && (
+              <Link to="/admin">Admin Dashboard</Link>
+            )}
+          </>
         )}
         {!user ? (
           <>
