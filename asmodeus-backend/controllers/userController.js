@@ -1,5 +1,6 @@
 import sql from 'mssql';
 import { connectToDB } from '../config/database.js';
+import bcrypt from 'bcrypt';
 
 export const registerUser = async (req, res) => {
   const { username, password_hash, full_name, email } = req.body;
@@ -30,9 +31,12 @@ export const registerUser = async (req, res) => {
     const role_id = 4;
     const status = "active";
 
+    // Hash the incoming password before saving
+    const hashedPassword = await bcrypt.hash(password_hash, 10);
+
     await pool.request()
       .input("username", sql.VarChar, username)
-      .input("password_hash", sql.VarChar, password_hash)
+      .input("password_hash", sql.VarChar, hashedPassword)
       .input("full_name", sql.VarChar, full_name)
       .input("email", sql.VarChar, email)
       .input("role_id", sql.Int, role_id)
@@ -68,8 +72,9 @@ export const loginUser = async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    // (Later we’ll hash passwords — for now, plain text comparison)
-    if (user.password_hash !== password_hash) {
+    // Compare plaintext password with stored hash
+    const isValid = await bcrypt.compare(password_hash, user.password_hash);
+    if (!isValid) {
       return res.status(401).json({ message: "Invalid credentials." });
     }
 
