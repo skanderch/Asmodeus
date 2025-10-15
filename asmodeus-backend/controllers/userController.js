@@ -89,6 +89,11 @@ export const loginUser = async (req, res) => {
 
     const token = generateToken(userData);
 
+    // Update last_login timestamp
+    await pool.request()
+      .input("userId", sql.Int, user.user_id)
+      .query("UPDATE Users SET last_login = GETDATE() WHERE user_id = @userId");
+
     // Set httpOnly cookie
     res.cookie('token', token, {
       httpOnly: true,        // Prevents XSS attacks

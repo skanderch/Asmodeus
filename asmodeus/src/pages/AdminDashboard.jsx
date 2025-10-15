@@ -85,6 +85,20 @@ function AdminDashboard() {
     }
   };
 
+  const formatLastLogin = (lastLogin) => {
+    if (!lastLogin) return 'Never';
+    
+    const loginDate = new Date(lastLogin);
+    const now = new Date();
+    const diffInHours = Math.floor((now - loginDate) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
+    
+    return loginDate.toLocaleDateString() + ' ' + loginDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  };
+
   if (loading) {
     return <div className="admin-dashboard-container">Loading...</div>;
   }
@@ -137,6 +151,7 @@ function AdminDashboard() {
                 <th>Role</th>
                 <th>Status</th>
                 <th>Created</th>
+                <th>Last Login</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -154,6 +169,7 @@ function AdminDashboard() {
                     </span>
                   </td>
                   <td>{new Date(user.created_at).toLocaleDateString()}</td>
+                  <td>{formatLastLogin(user.last_login)}</td>
                   <td>
                     <div className="action-buttons">
                       {user.status === 'active' ? (
