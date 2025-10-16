@@ -114,10 +114,12 @@ function Navbar() {
           
           {user ? (
             <>
-              <Link to="/espace" className="nav-link">
-                <FaUser className="nav-icon" />
-                Dashboard
-              </Link>
+              {user.role_id === 4 && (
+                <Link to="/espace" className="nav-link">
+                  <FaUser className="nav-icon" />
+                  Mon Espace
+                </Link>
+              )}
               
               {user.role_id === 1 && (
                 <Link to="/admin" className="nav-link admin-link">
@@ -166,10 +168,12 @@ function Navbar() {
                 <div className="dropdown-divider"></div>
                 
                 <div className="dropdown-menu">
-                  <Link to="/espace" className="dropdown-item" onClick={closeProfileDropdown}>
-                    <FaUser className="dropdown-icon" />
-                    My Dashboard
-                  </Link>
+                  {user.role_id === 4 && (
+                    <Link to="/espace" className="dropdown-item" onClick={closeProfileDropdown}>
+                      <FaUser className="dropdown-icon" />
+                      Mon Espace
+                    </Link>
+                  )}
                   
                   <Link to="/profile" className="dropdown-item" onClick={closeProfileDropdown}>
                     <FaUserCircle className="dropdown-icon" />
@@ -222,10 +226,12 @@ function Navbar() {
               
               {user ? (
                 <>
-                  <Link to="/espace" className="mobile-nav-link" onClick={closeMobileMenu}>
-                    <FaUser className="mobile-nav-icon" />
-                    Dashboard
-                  </Link>
+                  {user.role_id === 4 && (
+                    <Link to="/espace" className="mobile-nav-link" onClick={closeMobileMenu}>
+                      <FaUser className="mobile-nav-icon" />
+                      Mon Espace
+                    </Link>
+                  )}
                   
                   {user.role_id === 1 && (
                     <Link to="/admin" className="mobile-nav-link" onClick={closeMobileMenu}>

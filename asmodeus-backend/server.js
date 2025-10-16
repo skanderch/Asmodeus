@@ -6,6 +6,7 @@ import { generateCSRFToken } from './middleware/csrf.js';
 import dotenv from 'dotenv';
 dotenv.config();
 import userRoutes from './routes/userRoutes.js';
+import applicationRoutes from './routes/applicationRoutes.js';
 
 const app = express();
 app.use(cors({
@@ -30,6 +31,7 @@ app.get('/api/csrf-token', (req, res) => {
 app.use(generateCSRFToken);
 
 app.use('/api/users', userRoutes);
+app.use('/api/applications', applicationRoutes);
 
 app.listen(PORT, async () => {
   await connectToDB();

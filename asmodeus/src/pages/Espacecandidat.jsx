@@ -28,6 +28,11 @@ function Espacecandidat() {
     
     try {
       const parsed = JSON.parse(storedUser);
+      if (parsed.role_id !== 4) {
+        // Only candidates can access this page
+        navigate("/");
+        return;
+      }
       setUser(parsed);
       if (storageKey) {
         const rawApps = localStorage.getItem(storageKey);
@@ -40,7 +45,7 @@ function Espacecandidat() {
 
   return (
     <div className="dashboard-container">
-      <h1 className="dashboard-title">Espace candidat</h1>
+      <h1 className="dashboard-title">Mon Espace</h1>
       <p className="dashboard-welcome">Bienvenue {user?.full_name || user?.username}</p>
 
       <h2 className="section-title">Vos candidatures</h2>

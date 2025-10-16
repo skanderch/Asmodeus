@@ -72,6 +72,69 @@
   margin-bottom: 1rem;
 }
 
+.users-create {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.users-create h2 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+  color: #182848;
+}
+
+.create-form {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.create-form input,
+.create-form select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e1e5ee;
+  border-radius: 6px;
+  background: #f9fbff;
+  color: #223;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.create-form input:focus,
+.create-form select:focus {
+  border-color: #4b6cb7;
+  box-shadow: 0 0 0 3px rgba(75, 108, 183, 0.15);
+  background: #fff;
+}
+
+/* Place fields nicely across the grid */
+.create-form input[placeholder="Username"] { grid-column: span 2; }
+.create-form input[placeholder="Email"] { grid-column: span 2; }
+.create-form input[placeholder="Full name"] { grid-column: span 2; }
+.create-form input[placeholder="Password"] { grid-column: span 2; }
+.create-form select:nth-of-type(1) { grid-column: span 2; }
+.create-form select:nth-of-type(2) { grid-column: span 1; }
+.create-form .btn-success { grid-column: span 1; }
+
+@media (max-width: 900px) {
+  .create-form {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .create-form input[placeholder="Username"],
+  .create-form input[placeholder="Email"],
+  .create-form input[placeholder="Full name"],
+  .create-form input[placeholder="Password"],
+  .create-form select,
+  .create-form .btn-success {
+    grid-column: span 2;
+  }
+}
+
 .users-table-container {
   background: white;
   border-radius: 8px;
@@ -133,6 +196,10 @@
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.action-buttons .btn-sm {
+  min-width: 80px;
 }
 
 .btn-sm {
@@ -208,4 +275,110 @@
   .action-buttons {
     flex-direction: column;
   }
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+  animation: fadeIn 150ms ease-out;
+}
+
+.modal-card {
+  background: #fff;
+  width: 100%;
+  max-width: 520px;
+  border-radius: 10px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+  padding: 1.25rem 1.25rem 1.25rem;
+  transform: translateY(10px);
+  animation: slideUp 180ms ease-out;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #182848;
+  font-size: 1.15rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #4a5879;
+}
+
+/* Vertical form layout inside modal */
+.modal-card .create-form {
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.form-section {
+  background: #f7f9ff;
+  border: 1px solid #e3e9f8;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.form-section + .form-section {
+  margin-top: 0.75rem;
+}
+
+.form-section-title {
+  margin: 0 0 0.5rem 0;
+  color: #182848;
+  font-size: 0.95rem;
+}
+
+.modal-card .create-form input,
+.modal-card .create-form select {
+  grid-column: 1 / -1;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Placeholder styling for better readability */
+.modal-card .create-form input::placeholder {
+  color: #6b7391;
+  font-size: 0.9rem;
+}
+
+.modal-card .create-form input,
+.modal-card .create-form select {
+  padding: 0.45rem 0.65rem;
+}
+
+.form-section input,
+.form-section select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }

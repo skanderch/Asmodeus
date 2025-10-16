@@ -11,6 +11,20 @@
   margin-top: 16px;
 }
 
+.role-note {
+  color: #5c6b8a;
+  font-weight: 600;
+}
+
+.role-warning {
+  background: #fff1f0;
+  color: #a8071a;
+  border: 1px solid #ffa39e;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin: 10px 0 0 0;
+}
+
 .offer-card {
   background: #fff;
   border-radius: 10px;
@@ -68,6 +82,13 @@
 
 .btn-secondary:hover {
   background: #e2eaff;
+}
+
+.btn-disabled,
+.btn-primary:disabled {
+  background: #cfd6eb;
+  color: #6b7391;
+  cursor: not-allowed;
 }
 
 

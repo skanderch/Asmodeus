@@ -73,6 +73,11 @@ export const loginUser = async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
+    // Block login if user status is not active
+    if (user.status && user.status !== 'active') {
+      return res.status(403).json({ message: `Account is ${user.status}. Please contact support.` });
+    }
+
     // Compare plaintext password with stored hash
     const isValid = await bcrypt.compare(password_hash, user.password_hash);
     if (!isValid) {
@@ -140,7 +145,14 @@ export const getAllUsers = async (req, res) => {
     
     const result = await pool.request()
       .query(`
-        SELECT u.user_id, u.username, u.full_name, u.email, u.role_id, u.status, u.created_at,
+        SELECT u.user_id,
+               u.username,
+               u.full_name,
+               u.email,
+               u.role_id,
+               u.status,
+               u.created_at,
+               u.last_login,
                r.role_name
         FROM Users u
         LEFT JOIN Roles r ON u.role_id = r.role_id
@@ -229,5 +241,109 @@ export const logoutUser = async (req, res) => {
   } catch (error) {
     console.error("Logout error:", error);
     res.status(500).json({ message: "Server error during logout." });
+  }
+};
+
+// ===== Admin CRUD for Users =====
+export const createUserAdmin = async (req, res) => {
+  const { username, password, full_name, email, role_id = 4, status = 'active' } = req.body;
+
+  if (!username || !password || !email) {
+    return res.status(400).json({ message: "username, email and password are required." });
+  }
+
+  try {
+    const pool = await connectToDB();
+
+    const checkExisting = await pool.request()
+      .input("username", sql.VarChar, username)
+      .input("email", sql.VarChar, email)
+      .query(`SELECT user_id FROM Users WHERE username = @username OR email = @email`);
+
+    if (checkExisting.recordset.length > 0) {
+      return res.status(400).json({ message: "Username or email already exists." });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await pool.request()
+      .input("username", sql.VarChar, username)
+      .input("password_hash", sql.VarChar, hashedPassword)
+      .input("full_name", sql.VarChar, full_name)
+      .input("email", sql.VarChar, email)
+      .input("role_id", sql.Int, role_id)
+      .input("status", sql.VarChar, status)
+      .query(`
+        INSERT INTO Users (username, password_hash, full_name, email, role_id, status, created_at)
+        VALUES (@username, @password_hash, @full_name, @email, @role_id, @status, GETDATE())
+      `);
+
+    res.status(201).json({ message: "User created successfully." });
+  } catch (error) {
+    console.error("Admin create user error:", error);
+    res.status(500).json({ message: "Server error creating user." });
+  }
+};
+
+export const updateUserAdmin = async (req, res) => {
+  const { userId } = req.params;
+  const { full_name, email, role_id, status, password } = req.body;
+
+  if (!userId) return res.status(400).json({ message: "userId is required" });
+
+  try {
+    const pool = await connectToDB();
+
+    // Optionally update password
+    let hashedPassword = null;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+
+    // Build dynamic update query
+    const sets = [];
+    if (full_name !== undefined) sets.push("full_name = @full_name");
+    if (email !== undefined) sets.push("email = @email");
+    if (role_id !== undefined) sets.push("role_id = @role_id");
+    if (status !== undefined) sets.push("status = @status");
+    if (hashedPassword) sets.push("password_hash = @password_hash");
+
+    if (sets.length === 0) {
+      return res.status(400).json({ message: "No fields to update." });
+    }
+
+    const query = `UPDATE Users SET ${sets.join(", ")} WHERE user_id = @userId`;
+
+    const reqDb = pool.request().input("userId", sql.Int, userId);
+    if (full_name !== undefined) reqDb.input("full_name", sql.VarChar, full_name);
+    if (email !== undefined) reqDb.input("email", sql.VarChar, email);
+    if (role_id !== undefined) reqDb.input("role_id", sql.Int, role_id);
+    if (status !== undefined) reqDb.input("status", sql.VarChar, status);
+    if (hashedPassword) reqDb.input("password_hash", sql.VarChar, hashedPassword);
+
+    await reqDb.query(query);
+
+    res.status(200).json({ message: "User updated successfully." });
+  } catch (error) {
+    console.error("Admin update user error:", error);
+    res.status(500).json({ message: "Server error updating user." });
+  }
+};
+
+export const deleteUserAdmin = async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) return res.status(400).json({ message: "userId is required" });
+
+  try {
+    const pool = await connectToDB();
+    await pool.request()
+      .input("userId", sql.Int, userId)
+      .query("DELETE FROM Users WHERE user_id = @userId");
+
+    res.status(200).json({ message: "User deleted successfully." });
+  } catch (error) {
+    console.error("Admin delete user error:", error);
+    res.status(500).json({ message: "Server error deleting user." });
   }
 };

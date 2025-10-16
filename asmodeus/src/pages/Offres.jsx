@@ -1,9 +1,21 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Offres.css";
 
 function Offres() {
   const navigate = useNavigate();
+  const [message, setMessage] = useState("");
+
+  const user = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("user");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const isCandidate = user?.role_id === 4; // 4 = Candidat
   const offers = useMemo(
     () => [
       {
@@ -24,13 +36,47 @@ function Offres() {
     []
   );
 
-  const handleApply = (offerId) => {
+  const handleApply = async (offerId) => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
       navigate("/login");
       return;
     }
-    // persist application per-user in localStorage
+    if (!isCandidate) {
+      setMessage("Seuls les candidats peuvent postuler à une offre.");
+      return;
+    }
+    // Backend enforcement: only candidates can apply
+    try {
+      const response = await fetch("http://localhost:5000/api/applications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ offerId }),
+      });
+      if (response.status === 401) {
+        navigate("/login");
+        return;
+      }
+      if (response.status === 403) {
+        const data = await response.json().catch(() => ({}));
+        setMessage(data.message || "Seuls les candidats peuvent postuler.");
+        return;
+      }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setMessage(data.message || "Erreur lors de l'envoi de la candidature.");
+        return;
+      }
+    } catch (e) {
+      // Network or server error
+      setMessage("Impossible de contacter le serveur. Réessayez plus tard.");
+      return;
+    }
+
+    // persist application per-user in localStorage (client-side history)
     try {
       const parsedUser = JSON.parse(storedUser);
       const key = `applications:${parsedUser.username || parsedUser.id || "anon"}`;
@@ -49,7 +95,13 @@ function Offres() {
   return (
     <div className="offres-page">
       <h1>Offres d'emploi</h1>
-      <p>Consultez nos opportunités. Vous devez être connecté pour postuler.</p>
+      <p>
+        Consultez nos opportunités. Vous devez être connecté pour postuler.
+        {!isCandidate && (
+          <span className="role-note"> — Seuls les candidats peuvent postuler.</span>
+        )}
+      </p>
+      {message && <div className="role-warning">{message}</div>}
       <div className="offers-grid">
         {offers.map((offer) => (
           <div key={offer.id} className="offer-card">
@@ -64,7 +116,12 @@ function Offres() {
               <button className="btn-secondary" onClick={() => navigate(`/offres/${offer.id}`)}>
                 Détails
               </button>
-              <button className="btn-primary" onClick={() => handleApply(offer.id)}>
+              <button
+                className={`btn-primary ${!isCandidate ? "btn-disabled" : ""}`}
+                onClick={() => handleApply(offer.id)}
+                disabled={!isCandidate}
+                title={!isCandidate ? "Seuls les candidats peuvent postuler" : "Postuler"}
+              >
                 Postuler
               </button>
             </div>
