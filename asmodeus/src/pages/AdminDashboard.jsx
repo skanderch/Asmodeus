@@ -9,6 +9,18 @@ function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [myModules, setMyModules] = useState([]);
+  const [allModules, setAllModules] = useState([]);
+  const [editSelectedModuleIds, setEditSelectedModuleIds] = useState([]);
+  const [editForm, setEditForm] = useState({
+    user_id: null,
+    full_name: "",
+    email: "",
+    role_id: 4,
+    status: "active",
+  });
+  
   const [newUser, setNewUser] = useState({
     username: "",
     email: "",
@@ -27,6 +39,27 @@ function AdminDashboard() {
     }
 
     fetchUsers();
+    // Load current admin modules for UI permissions
+    (async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/users/me/modules', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setMyModules((data.modules || []).map(m => m.module_name));
+        }
+      } catch {}
+    })();
+    // Preload all modules for assignment UI
+    (async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/users/modules', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setAllModules(data.modules || []);
+        }
+      } catch {}
+    })();
+    
   }, [navigate]);
 
   const fetchUsers = async () => {
@@ -126,28 +159,65 @@ function AdminDashboard() {
   }, [showCreateModal]);
 
   const handleEditUser = async (user) => {
-    const full_name = window.prompt("Full name", user.full_name || "");
-    if (full_name === null) return;
-    const email = window.prompt("Email", user.email || "");
-    if (email === null) return;
-    const roleStr = window.prompt("Role (1=Admin,2=RH,3=Recruteur,4=Candidat)", String(user.role_id));
-    if (roleStr === null) return;
-    const status = window.prompt("Status (active,inactive,suspended)", user.status || "active");
-    if (status === null) return;
-
+    setEditForm({
+      user_id: user.user_id,
+      full_name: user.full_name || "",
+      email: user.email || "",
+      role_id: Number(user.role_id) || 4,
+      status: user.status || "active",
+    });
+    // Fetch effective modules for selected user
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${user.user_id}`, {
+      const res = await fetch(`http://localhost:5000/api/users/${user.user_id}/modules`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setEditSelectedModuleIds((data.modules || []).map(m => m.module_id));
+      } else {
+        setEditSelectedModuleIds([]);
+      }
+    } catch {
+      setEditSelectedModuleIds([]);
+    }
+    setShowEditModal(true);
+  };
+
+  const handleSubmitEdit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`http://localhost:5000/api/users/${editForm.user_id}`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name, email, role_id: Number(roleStr), status }),
+        body: JSON.stringify({
+          full_name: editForm.full_name,
+          email: editForm.email,
+          role_id: Number(editForm.role_id),
+          status: editForm.status,
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
         setMessage(data.message || "Failed to update user");
       } else {
-        setMessage("User updated successfully");
-        fetchUsers();
+        // Update direct modules assignment
+        try {
+          const res2 = await fetch(`http://localhost:5000/api/users/${editForm.user_id}/modules`, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ moduleIds: editSelectedModuleIds })
+          });
+          const data2 = await res2.json().catch(() => ({}));
+          if (!res2.ok) {
+            setMessage(data2.message || 'Failed to update user modules');
+          } else {
+            setMessage("User updated successfully");
+            setShowEditModal(false);
+            fetchUsers();
+          }
+        } catch {
+          setMessage('Error updating user modules');
+        }
       }
     } catch (err) {
       console.error("Update user error:", err);
@@ -197,16 +267,8 @@ function AdminDashboard() {
 
   const formatLastLogin = (lastLogin) => {
     if (!lastLogin) return 'Never';
-    
     const loginDate = new Date(lastLogin);
-    const now = new Date();
-    const diffInHours = Math.floor((now - loginDate) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-    
-    return loginDate.toLocaleDateString() + ' ' + loginDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    return loginDate.toLocaleDateString() + ' ' + loginDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   if (loading) {
@@ -217,9 +279,7 @@ function AdminDashboard() {
     <div className="admin-dashboard-container">
       <div className="dashboard-header">
         <h1>Admin Dashboard</h1>
-        <button onClick={() => navigate("/espace")} className="btn-secondary">
-          Back to Dashboard
-        </button>
+        
       </div>
 
       {message && (
@@ -230,14 +290,34 @@ function AdminDashboard() {
       )}
 
       <div className="users-section">
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem'}}>
-          <h2>User Management</h2>
-          <button
-            className="btn-success"
-            onClick={() => setShowCreateModal(true)}
-          >
-            Add user
-          </button>
+        <div className="users-stats-card">
+          <h2>User Stats</h2>
+          <div className="stats-grid">
+            <div className="stat-card stat-card--primary">
+              <h3>Total Users</h3>
+              <p className="stat-number">{users.length}</p>
+            </div>
+            <div className="stat-card stat-card--success">
+              <h3>Active Users</h3>
+              <p className="stat-number">{users.filter(u => u.status === 'active').length}</p>
+            </div>
+            <div className="stat-card stat-card--purple">
+              <h3>Admins</h3>
+              <p className="stat-number">{users.filter(u => u.role_id === 1).length}</p>
+            </div>
+            <div className="stat-card stat-card--teal">
+              <h3>HR Managers</h3>
+              <p className="stat-number">{users.filter(u => u.role_id === 2).length}</p>
+            </div>
+            <div className="stat-card stat-card--orange">
+              <h3>Recruiters</h3>
+              <p className="stat-number">{users.filter(u => u.role_id === 3).length}</p>
+            </div>
+            <div className="stat-card stat-card--indigo">
+              <h3>Candidates</h3>
+              <p className="stat-number">{users.filter(u => u.role_id === 4).length}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -325,28 +405,121 @@ function AdminDashboard() {
         </div>
       )}
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <h3>Total Users</h3>
-          <p className="stat-number">{users.length}</p>
+      {showEditModal && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-user-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowEditModal(false);
+          }}
+        >
+          <div className="modal-card">
+            <div className="modal-header">
+              <h3 id="edit-user-title">Edit User</h3>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
+            </div>
+            <form className="create-form" onSubmit={handleSubmitEdit}>
+              <div className="form-section">
+                <h4 className="form-section-title">Informations de base</h4>
+                <input
+                  type="email"
+                  placeholder="E-mail"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Nom complet"
+                  value={editForm.full_name}
+                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                />
+              </div>
+
+              <div className="form-section">
+                <h4 className="form-section-title">Rôle et statut</h4>
+                <select
+                  value={editForm.role_id}
+                  onChange={(e) => setEditForm({ ...editForm, role_id: e.target.value })}
+                >
+                  <option value={1}>Admin</option>
+                  <option value={2}>RH</option>
+                  <option value={3}>Recruteur</option>
+                  <option value={4}>Candidat</option>
+                </select>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                >
+                  <option value="active">active</option>
+                  <option value="inactive">inactive</option>
+                  <option value="suspended">suspended</option>
+                </select>
+              </div>
+
+              <div className="form-section">
+                <h4 className="form-section-title">Modules</h4>
+                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:'0.5rem'}}>
+                  {allModules.map((m) => {
+                    const checked = editSelectedModuleIds.includes(m.module_id);
+                    return (
+                      <label key={m.module_id} style={{display:'flex', alignItems:'center', gap:'0.5rem', background:'#f9fbff', border:'1px solid #e1e5ee', padding:'0.4rem 0.6rem', borderRadius:'6px'}}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditSelectedModuleIds([...editSelectedModuleIds, m.module_id]);
+                            } else {
+                              setEditSelectedModuleIds(editSelectedModuleIds.filter(id => id !== m.module_id));
+                            }
+                          }}
+                        />
+                        <span>{m.module_name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              
+
+              <div style={{display:'flex', gap:'0.5rem', justifyContent:'flex-end'}}>
+                <button type="button" className="btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
+                <button className="btn-success" type="submit">
+                  Save changes
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-        <div className="stat-card">
-          <h3>Active Users</h3>
-          <p className="stat-number">{users.filter(u => u.status === 'active').length}</p>
-        </div>
-        <div className="stat-card">
-          <h3>Admins</h3>
-          <p className="stat-number">{users.filter(u => u.role_id === 1).length}</p>
-        </div>
-        <div className="stat-card">
-          <h3>Candidates</h3>
-          <p className="stat-number">{users.filter(u => u.role_id === 4).length}</p>
-        </div>
-      </div>
+      )}
+
+      
 
       <div className="users-section">
-        <h2>User Management</h2>
-        <div className="users-table-container">
+        <div className="users-management-card">
+          <h2>User Management</h2>
+          <div className="users-management-actions">
+            {(JSON.parse(localStorage.getItem('user')||'{}').role_id === 1) || myModules.includes('Users:Write') ? (
+              <button
+                className="btn-add-user"
+                onClick={() => setShowCreateModal(true)}
+              >
+                Add user
+              </button>
+            ) : null}
+            <button
+              className="btn-reload"
+              onClick={() => fetchUsers()}
+              title="Reload users"
+            >
+              Reload
+            </button>
+          </div>
+          <div className="users-table-container">
           <table className="users-table">
             <thead>
               <tr>
@@ -358,6 +531,7 @@ function AdminDashboard() {
                 <th>Status</th>
                 <th>Created</th>
                 <th>Last Login</th>
+                <th>Modules</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -377,35 +551,48 @@ function AdminDashboard() {
                   <td>{new Date(user.created_at).toLocaleDateString()}</td>
                   <td>{formatLastLogin(user.last_login)}</td>
                   <td>
+                    <div style={{display:'flex', flexWrap:'wrap', gap:'0.25rem'}}>
+                      {String(user.modules || '').split(',').filter(Boolean).map((m, idx) => (
+                        <span key={idx} className="module-badge">{m.trim()}</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
                     <div className="action-buttons">
-                      <button 
-                        onClick={() => handleEditUser(user)}
-                        className="btn-secondary btn-sm"
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteUser(user)}
-                        className="btn-danger btn-sm"
-                      >
-                        Delete
-                      </button>
-                      {user.status === 'active' ? (
+                      {(JSON.parse(localStorage.getItem('user')||'{}').role_id === 1) || myModules.includes('Users:Write') ? (
                         <button 
-                          onClick={() => updateUserStatus(user.user_id, 'inactive')}
-                          className="btn-warning btn-sm"
+                          onClick={() => handleEditUser(user)}
+                          className="btn-secondary btn-sm"
                         >
-                          Deactivate
+                          Edit
                         </button>
-                      ) : (
+                      ) : null}
+                      {(JSON.parse(localStorage.getItem('user')||'{}').role_id === 1) || myModules.includes('Users:Delete') ? (
                         <button 
-                          onClick={() => updateUserStatus(user.user_id, 'active')}
-                          className="btn-success btn-sm"
+                          onClick={() => handleDeleteUser(user)}
+                          className="btn-danger btn-sm"
                         >
-                          Activate
+                          Delete
                         </button>
-                      )}
-                      {user.status !== 'suspended' && (
+                      ) : null}
+                      {(JSON.parse(localStorage.getItem('user')||'{}').role_id === 1) || myModules.includes('Users:Write') ? (
+                        user.status === 'active' ? (
+                          <button 
+                            onClick={() => updateUserStatus(user.user_id, 'inactive')}
+                            className="btn-warning btn-sm"
+                          >
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => updateUserStatus(user.user_id, 'active')}
+                            className="btn-success btn-sm"
+                          >
+                            Activate
+                          </button>
+                        )
+                      ) : null}
+                      {((JSON.parse(localStorage.getItem('user')||'{}').role_id === 1) || myModules.includes('Users:Write')) && user.status !== 'suspended' && (
                         <button 
                           onClick={() => updateUserStatus(user.user_id, 'suspended')}
                           className="btn-danger btn-sm"
@@ -419,6 +606,7 @@ function AdminDashboard() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

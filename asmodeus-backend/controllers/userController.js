@@ -2,6 +2,7 @@ import sql from 'mssql';
 import { connectToDB } from '../config/database.js';
 import bcrypt from 'bcrypt';
 import { generateToken } from '../middleware/auth.js';
+import { connectToDB as db } from '../config/database.js';
 
 export const registerUser = async (req, res) => {
   const { username, password_hash, full_name, email } = req.body;
@@ -35,7 +36,8 @@ export const registerUser = async (req, res) => {
     // Hash the incoming password before saving
     const hashedPassword = await bcrypt.hash(password_hash, 10);
 
-    await pool.request()
+    // Create user and get new ID
+    const insertUser = await pool.request()
       .input("username", sql.VarChar, username)
       .input("password_hash", sql.VarChar, hashedPassword)
       .input("full_name", sql.VarChar, full_name)
@@ -44,8 +46,42 @@ export const registerUser = async (req, res) => {
       .input("status", sql.VarChar, status)
       .query(`
         INSERT INTO Users (username, password_hash, full_name, email, role_id, status, created_at)
+        OUTPUT INSERTED.user_id AS user_id
         VALUES (@username, @password_hash, @full_name, @email, @role_id, @status, GETDATE())
       `);
+
+    const newUserId = insertUser.recordset?.[0]?.user_id;
+
+    // Ensure default module 'espace_candidat' exists
+    let moduleId;
+    const modCheck = await pool.request()
+      .input('moduleName', sql.NVarChar, 'espace_candidat')
+      .query(`SELECT module_id FROM Modules WHERE module_name = @moduleName`);
+    if (modCheck.recordset.length === 0) {
+      const modInsert = await pool.request()
+        .input('moduleName', sql.NVarChar, 'espace_candidat')
+        .input('description', sql.NVarChar, 'Espace Candidat')
+        .input('routePrefix', sql.NVarChar, '/espace')
+        .query(`
+          INSERT INTO Modules (module_name, description, route_prefix)
+          OUTPUT INSERTED.module_id AS module_id
+          VALUES (@moduleName, @description, @routePrefix)
+        `);
+      moduleId = modInsert.recordset[0].module_id;
+    } else {
+      moduleId = modCheck.recordset[0].module_id;
+    }
+
+    // Assign default module to the new user
+    if (newUserId && moduleId) {
+      await pool.request()
+        .input('userId', sql.Int, newUserId)
+        .input('moduleId', sql.Int, moduleId)
+        .query(`
+          IF NOT EXISTS (SELECT 1 FROM UserModules WHERE user_id = @userId AND module_id = @moduleId)
+          INSERT INTO UserModules (user_id, module_id) VALUES (@userId, @moduleId)
+        `);
+    }
 
     res.status(201).json({ message: "✅ Account created successfully as viewer. Please login." });
   } catch (error) {
@@ -139,23 +175,41 @@ export const getProfile = async (req, res) => {
   }
 };
 
+// Current user's effective modules (role + user)
+// (duplicate getCurrentUserModules removed)
+
 export const getAllUsers = async (req, res) => {
   try {
     const pool = await connectToDB();
     
     const result = await pool.request()
       .query(`
-        SELECT u.user_id,
-               u.username,
-               u.full_name,
-               u.email,
-               u.role_id,
-               u.status,
-               u.created_at,
-               u.last_login,
-               r.role_name
+        SELECT 
+          u.user_id,
+          u.username,
+          u.full_name,
+          u.email,
+          u.role_id,
+          u.status,
+          u.created_at,
+          u.last_login,
+          r.role_name,
+          mods.modules
         FROM Users u
         LEFT JOIN Roles r ON u.role_id = r.role_id
+        OUTER APPLY (
+          SELECT STRING_AGG(mod_name, ', ') AS modules FROM (
+            SELECT DISTINCT m.module_name AS mod_name
+            FROM RoleModules rm
+            JOIN Modules m ON m.module_id = rm.module_id
+            WHERE rm.role_id = u.role_id
+            UNION
+            SELECT DISTINCT m2.module_name AS mod_name
+            FROM UserModules um
+            JOIN Modules m2 ON m2.module_id = um.module_id
+            WHERE um.user_id = u.user_id
+          ) AS mm
+        ) mods
         ORDER BY u.created_at DESC
       `);
     
@@ -323,6 +377,45 @@ export const updateUserAdmin = async (req, res) => {
 
     await reqDb.query(query);
 
+    // If role changed (or set) to Candidate (4), ensure and assign espace_candidat module
+    if (role_id === 4) {
+      try {
+        // Ensure module exists
+        let moduleId;
+        const modCheck = await pool.request()
+          .input('moduleName', sql.NVarChar, 'espace_candidat')
+          .query(`SELECT module_id FROM Modules WHERE module_name = @moduleName`);
+        if (modCheck.recordset.length === 0) {
+          const modInsert = await pool.request()
+            .input('moduleName', sql.NVarChar, 'espace_candidat')
+            .input('description', sql.NVarChar, 'Espace Candidat')
+            .input('routePrefix', sql.NVarChar, '/espace')
+            .query(`
+              INSERT INTO Modules (module_name, description, route_prefix)
+              OUTPUT INSERTED.module_id AS module_id
+              VALUES (@moduleName, @description, @routePrefix)
+            `);
+          moduleId = modInsert.recordset[0].module_id;
+        } else {
+          moduleId = modCheck.recordset[0].module_id;
+        }
+
+        // Assign to user if not already
+        if (moduleId) {
+          await pool.request()
+            .input('userId', sql.Int, userId)
+            .input('moduleId', sql.Int, moduleId)
+            .query(`
+              IF NOT EXISTS (SELECT 1 FROM UserModules WHERE user_id = @userId AND module_id = @moduleId)
+              INSERT INTO UserModules (user_id, module_id) VALUES (@userId, @moduleId)
+            `);
+        }
+      } catch (modErr) {
+        // Non-fatal: log and continue
+        console.error('Assign espace_candidat module error:', modErr);
+      }
+    }
+
     res.status(200).json({ message: "User updated successfully." });
   } catch (error) {
     console.error("Admin update user error:", error);
@@ -345,5 +438,86 @@ export const deleteUserAdmin = async (req, res) => {
   } catch (error) {
     console.error("Admin delete user error:", error);
     res.status(500).json({ message: "Server error deleting user." });
+  }
+};
+
+// ===== Modules listing and assignment =====
+export const listModules = async (_req, res) => {
+  try {
+    const pool = await connectToDB();
+    const result = await pool.request().query(`SELECT module_id, module_name, description, route_prefix FROM Modules ORDER BY module_name`);
+    res.status(200).json({ modules: result.recordset });
+  } catch (error) {
+    console.error('List modules error:', error);
+    res.status(500).json({ message: 'Server error listing modules.' });
+  }
+};
+
+export const getUserModules = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const pool = await connectToDB();
+    const result = await pool.request()
+      .input('userId', sql.Int, userId)
+      .query(`
+        SELECT DISTINCT m.module_id, m.module_name, m.description, m.route_prefix
+        FROM Modules m
+        WHERE m.module_id IN (
+          SELECT module_id FROM RoleModules rm JOIN Users u ON u.role_id = rm.role_id WHERE u.user_id = @userId
+          UNION
+          SELECT module_id FROM UserModules WHERE user_id = @userId
+        )
+        ORDER BY m.module_name
+      `);
+    res.status(200).json({ modules: result.recordset });
+  } catch (error) {
+    console.error('Get user modules error:', error);
+    res.status(500).json({ message: 'Server error getting user modules.' });
+  }
+};
+
+export const getCurrentUserModules = async (req, res) => {
+  try {
+    const pool = await connectToDB();
+    const result = await pool.request()
+      .input('userId', sql.Int, req.user.id)
+      .query(`
+        SELECT DISTINCT m.module_id, m.module_name, m.description, m.route_prefix
+        FROM Modules m
+        WHERE m.module_id IN (
+          SELECT module_id FROM RoleModules rm JOIN Users u ON u.role_id = rm.role_id WHERE u.user_id = @userId
+          UNION
+          SELECT module_id FROM UserModules WHERE user_id = @userId
+        )
+        ORDER BY m.module_name
+      `);
+    res.status(200).json({ modules: result.recordset });
+  } catch (error) {
+    console.error('Get current user modules error:', error);
+    res.status(500).json({ message: 'Server error getting modules.' });
+  }
+};
+
+export const setUserModules = async (req, res) => {
+  const { userId } = req.params;
+  const { moduleIds } = req.body; // array of module_id
+  if (!Array.isArray(moduleIds)) {
+    return res.status(400).json({ message: 'moduleIds must be an array.' });
+  }
+  try {
+    const pool = await connectToDB();
+    const tx = new sql.Transaction(pool);
+    await tx.begin();
+    const reqTx = new sql.Request(tx);
+    await reqTx.input('userId', sql.Int, userId).query('DELETE FROM UserModules WHERE user_id = @userId');
+    for (const mid of moduleIds) {
+      await reqTx.input('userId', sql.Int, userId).input('moduleId', sql.Int, mid).query('INSERT INTO UserModules (user_id, module_id) VALUES (@userId, @moduleId)');
+    }
+    await tx.commit();
+    res.status(200).json({ message: 'User modules updated.' });
+  } catch (error) {
+    console.error('Set user modules error:', error);
+    try { /* ignore */ } catch {}
+    res.status(500).json({ message: 'Server error updating user modules.' });
   }
 };

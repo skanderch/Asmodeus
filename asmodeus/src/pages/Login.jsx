@@ -41,8 +41,9 @@ function Login() {
 
         setMessage(`✅ Welcome back, ${data.user.full_name || data.user.username}!`);
 
-        // ✅ Redirection automatique vers dashboard
-        setTimeout(() => navigate("/dashboard"), 1500);
+        // ✅ Redirect based on role to existing routes
+        const destination = data.user.role_id === 1 ? "/admin" : "/espace";
+        setTimeout(() => navigate(destination), 800);
       } else {
         setMessage(`❌ ${data.message || "Login failed."}`);
       }
