@@ -1,10 +1,12 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Offres.css";
 
 function Offres() {
   const navigate = useNavigate();
   const [message, setMessage] = useState("");
+  const [offers, setOffers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const user = useMemo(() => {
     try {
@@ -16,25 +18,36 @@ function Offres() {
   }, []);
 
   const isCandidate = user?.role_id === 4; // 4 = Candidat
-  const offers = useMemo(
-    () => [
-      {
-        id: 1,
-        title: "Développeur Full-Stack",
-        company: "Asmodeus",
-        location: "Tunis, Remote",
-        description: "React, Node.js, PostgreSQL, microservices.",
-      },
-      {
-        id: 2,
-        title: "Ingénieur DevOps",
-        company: "Asmodeus",
-        location: "Sousse",
-        description: "CI/CD, Docker, Kubernetes, monitoring.",
-      },
-    ],
-    []
-  );
+
+  useEffect(() => {
+    fetchOffers();
+  }, []);
+
+  const fetchOffers = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/offers/public", {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Fetched offers:', data.offers);
+        // Server already returns only published offers
+        setOffers(data.offers);
+      } else {
+        console.error("Failed to fetch offers");
+        setMessage("Erreur lors du chargement des offres");
+      }
+    } catch (error) {
+      console.error("Error fetching offers:", error);
+      setMessage("Erreur de connexion au serveur");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleApply = async (offerId) => {
     const storedUser = localStorage.getItem("user");
@@ -54,7 +67,7 @@ function Offres() {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ offerId }),
+        body: JSON.stringify({ job_id: offerId }),
       });
       if (response.status === 401) {
         navigate("/login");
@@ -82,8 +95,8 @@ function Offres() {
       const key = `applications:${parsedUser.username || parsedUser.id || "anon"}`;
       const raw = localStorage.getItem(key);
       const existing = raw ? JSON.parse(raw) : [];
-      const offer = offers.find((o) => o.id === offerId);
-      const already = existing.some((e) => e.id === offerId);
+      const offer = offers.find((o) => o.job_id === offerId);
+      const already = existing.some((e) => e.job_id === offerId);
       const next = already || !offer ? existing : [...existing, offer];
       localStorage.setItem(key, JSON.stringify(next));
     } catch {
@@ -91,6 +104,15 @@ function Offres() {
     }
     navigate("/espace");
   };
+
+  if (loading) {
+    return (
+      <div className="offres-page">
+        <h1>Offres d'emploi</h1>
+        <p>Chargement des offres...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="offres-page">
@@ -102,32 +124,59 @@ function Offres() {
         )}
       </p>
       {message && <div className="role-warning">{message}</div>}
-      <div className="offers-grid">
-        {offers.map((offer) => (
-          <div key={offer.id} className="offer-card">
-            <h3>{offer.title}</h3>
-            <div className="offer-meta">
-              <span>{offer.company}</span>
-              <span>•</span>
-              <span>{offer.location}</span>
+      
+      {offers.length === 0 ? (
+        <div className="no-offers">
+          <p>Aucune offre d'emploi disponible pour le moment.</p>
+        </div>
+      ) : (
+        <div className="offers-grid">
+          {offers.map((offer) => (
+            <div key={offer.job_id} className="offer-card">
+              <h3>{offer.titre}</h3>
+              <div className="offer-meta">
+                <span>{offer.entreprise}</span>
+                <span>•</span>
+                <span>{offer.lieu || "Non spécifié"}</span>
+                {offer.teletravail && <span>•</span>}
+                {offer.teletravail && <span className="remote-badge">Remote</span>}
+              </div>
+              <p className="offer-description">
+                {offer.description ? 
+                  (offer.description.length > 150 ? 
+                    offer.description.substring(0, 150) + "..." : 
+                    offer.description
+                  ) : 
+                  "Aucune description disponible."
+                }
+              </p>
+              {offer.salaire && (
+                <div className="offer-salary">
+                  <strong>Salaire:</strong> {offer.salaire}
+                </div>
+              )}
+              {offer.type_contrat && (
+                <div className="offer-contract">
+                  <strong>Type de contrat:</strong> {offer.type_contrat}
+                </div>
+              )}
+              <div className="offer-actions">
+                <button className="btn-secondary" onClick={() => navigate(`/offres/${offer.job_id}`)}>
+                  Détails
+                </button>
+                <button
+                  className={`btn-primary ${!isCandidate ? "btn-disabled" : ""}`}
+                  onClick={() => handleApply(offer.job_id)}
+                  disabled={!isCandidate}
+                  title={!isCandidate ? "Seuls les candidats peuvent postuler" : "Postuler"}
+                >
+                  Postuler
+                </button>
+              </div>
             </div>
-            <p className="offer-description">{offer.description}</p>
-            <div className="offer-actions">
-              <button className="btn-secondary" onClick={() => navigate(`/offres/${offer.id}`)}>
-                Détails
-              </button>
-              <button
-                className={`btn-primary ${!isCandidate ? "btn-disabled" : ""}`}
-                onClick={() => handleApply(offer.id)}
-                disabled={!isCandidate}
-                title={!isCandidate ? "Seuls les candidats peuvent postuler" : "Postuler"}
-              >
-                Postuler
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

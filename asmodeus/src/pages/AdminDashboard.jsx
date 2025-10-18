@@ -8,6 +8,7 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [myModules, setMyModules] = useState([]);
@@ -62,7 +63,13 @@ function AdminDashboard() {
     
   }, [navigate]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (isReload = false) => {
+    if (isReload) {
+      setReloading(true);
+    } else {
+      setLoading(true);
+    }
+    
     try {
       const response = await fetch("http://localhost:5000/api/users/all", {
         credentials: "include", // Include cookies
@@ -74,6 +81,10 @@ function AdminDashboard() {
       if (response.ok) {
         const data = await response.json();
         setUsers(data.users);
+        if (isReload) {
+          setMessage("Users reloaded successfully");
+          setTimeout(() => setMessage(""), 3000); // Clear message after 3 seconds
+        }
       } else {
         setMessage("Failed to fetch users");
       }
@@ -81,7 +92,11 @@ function AdminDashboard() {
       console.error("Error fetching users:", error);
       setMessage("Error connecting to server");
     } finally {
-      setLoading(false);
+      if (isReload) {
+        setReloading(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
 
@@ -199,13 +214,23 @@ function AdminDashboard() {
       if (!response.ok) {
         setMessage(data.message || "Failed to update user");
       } else {
+        // If role changed to Candidate (4), automatically add espace_candidat module
+        let updatedModuleIds = [...editSelectedModuleIds];
+        if (Number(editForm.role_id) === 4) {
+          // Find espace_candidat module ID
+          const espaceCandidatModule = allModules.find(m => m.module_name === 'espace_candidat');
+          if (espaceCandidatModule && !updatedModuleIds.includes(espaceCandidatModule.module_id)) {
+            updatedModuleIds.push(espaceCandidatModule.module_id);
+          }
+        }
+
         // Update direct modules assignment
         try {
           const res2 = await fetch(`http://localhost:5000/api/users/${editForm.user_id}/modules`, {
             method: 'PUT',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ moduleIds: editSelectedModuleIds })
+            body: JSON.stringify({ moduleIds: updatedModuleIds })
           });
           const data2 = await res2.json().catch(() => ({}));
           if (!res2.ok) {
@@ -275,11 +300,46 @@ function AdminDashboard() {
     return <div className="admin-dashboard-container">Loading...</div>;
   }
 
+  // Get current admin user info
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentTime = new Date();
+  const timeOfDay = currentTime.getHours() < 12 ? "morning" : currentTime.getHours() < 18 ? "afternoon" : "evening";
+
   return (
     <div className="admin-dashboard-container">
       <div className="dashboard-header">
         <h1>Admin Dashboard</h1>
-        
+      </div>
+
+      <div className="welcome-section">
+        <div className="welcome-card">
+          <div className="welcome-content">
+            <h2 className="welcome-title">
+              Good {timeOfDay}, {currentUser.full_name || currentUser.username || 'Administrator'}! 👋
+            </h2>
+            <p className="welcome-message">
+              Welcome to the Asmodeus administration space. Here you can manage users, 
+              monitor system activity, and oversee all aspects of the platform.
+            </p>
+            <div className="welcome-stats">
+              <div className="welcome-stat">
+                <span className="stat-label">Total Users:</span>
+                <span className="stat-value">{users.length}</span>
+              </div>
+              <div className="welcome-stat">
+                <span className="stat-label">Active Users:</span>
+                <span className="stat-value">{users.filter(u => u.status === 'active').length}</span>
+              </div>
+              <div className="welcome-stat">
+                <span className="stat-label">Candidates:</span>
+                <span className="stat-value">{users.filter(u => u.role_id === 4).length}</span>
+              </div>
+            </div>
+          </div>
+          <div className="welcome-icon">
+            <div className="admin-icon">👨‍💼</div>
+          </div>
+        </div>
       </div>
 
       {message && (
@@ -442,7 +502,18 @@ function AdminDashboard() {
                 <h4 className="form-section-title">Rôle et statut</h4>
                 <select
                   value={editForm.role_id}
-                  onChange={(e) => setEditForm({ ...editForm, role_id: e.target.value })}
+                  onChange={(e) => {
+                    const newRoleId = Number(e.target.value);
+                    setEditForm({ ...editForm, role_id: newRoleId });
+                    
+                    // If role changed to Candidate (4), automatically add espace_candidat module
+                    if (newRoleId === 4) {
+                      const espaceCandidatModule = allModules.find(m => m.module_name === 'espace_candidat');
+                      if (espaceCandidatModule && !editSelectedModuleIds.includes(espaceCandidatModule.module_id)) {
+                        setEditSelectedModuleIds([...editSelectedModuleIds, espaceCandidatModule.module_id]);
+                      }
+                    }
+                  }}
                 >
                   <option value={1}>Admin</option>
                   <option value={2}>RH</option>
@@ -484,8 +555,6 @@ function AdminDashboard() {
                 </div>
               </div>
 
-              
-
               <div style={{display:'flex', gap:'0.5rem', justifyContent:'flex-end'}}>
                 <button type="button" className="btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
                 <button className="btn-success" type="submit">
@@ -496,8 +565,6 @@ function AdminDashboard() {
           </div>
         </div>
       )}
-
-      
 
       <div className="users-section">
         <div className="users-management-card">
@@ -513,10 +580,11 @@ function AdminDashboard() {
             ) : null}
             <button
               className="btn-reload"
-              onClick={() => fetchUsers()}
+              onClick={() => fetchUsers(true)}
               title="Reload users"
+              disabled={reloading}
             >
-              Reload
+              {reloading ? "Reloading..." : "Reload"}
             </button>
           </div>
           <div className="users-table-container">

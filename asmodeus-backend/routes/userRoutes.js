@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerUser, loginUser, logoutUser, getProfile, getAllUsers, updateUserStatus, forgotPassword, createUserAdmin, updateUserAdmin, deleteUserAdmin, getCurrentUserModules, listModules, getUserModules, setUserModules } from '../controllers/userController.js';
+import { registerUser, loginUser, logoutUser, getProfile, getAllUsers, updateUserStatus, forgotPassword, createUserAdmin, updateUserAdmin, deleteUserAdmin, getCurrentUserModules, listModules, getUserModules, setUserModules, createGestionOffresModule } from '../controllers/userController.js';
 import { verifyToken, requireAdmin, requireModule } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -25,6 +25,9 @@ router.get('/me/modules', verifyToken, getCurrentUserModules);
 router.get('/modules', verifyToken, requireAdmin, listModules);
 router.get('/:userId/modules', verifyToken, requireAdmin, getUserModules);
 router.put('/:userId/modules', verifyToken, requireAdmin, setUserModules);
+
+// Create gestion_offres module
+router.post('/create-gestion-offres-module', verifyToken, requireAdmin, createGestionOffresModule);
 
 // (Module management endpoints removed per request)
 

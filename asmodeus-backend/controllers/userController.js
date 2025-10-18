@@ -345,8 +345,9 @@ export const updateUserAdmin = async (req, res) => {
 
   if (!userId) return res.status(400).json({ message: "userId is required" });
 
+  let pool;
   try {
-    const pool = await connectToDB();
+    pool = await connectToDB();
 
     // Optionally update password
     let hashedPassword = null;
@@ -380,12 +381,16 @@ export const updateUserAdmin = async (req, res) => {
     // If role changed (or set) to Candidate (4), ensure and assign espace_candidat module
     if (role_id === 4) {
       try {
+        console.log('Assigning espace_candidat module to user:', userId);
+        
         // Ensure module exists
         let moduleId;
         const modCheck = await pool.request()
           .input('moduleName', sql.NVarChar, 'espace_candidat')
           .query(`SELECT module_id FROM Modules WHERE module_name = @moduleName`);
+        
         if (modCheck.recordset.length === 0) {
+          console.log('Creating espace_candidat module...');
           const modInsert = await pool.request()
             .input('moduleName', sql.NVarChar, 'espace_candidat')
             .input('description', sql.NVarChar, 'Espace Candidat')
@@ -396,29 +401,36 @@ export const updateUserAdmin = async (req, res) => {
               VALUES (@moduleName, @description, @routePrefix)
             `);
           moduleId = modInsert.recordset[0].module_id;
+          console.log('Created module with ID:', moduleId);
         } else {
           moduleId = modCheck.recordset[0].module_id;
+          console.log('Found existing module with ID:', moduleId);
         }
 
         // Assign to user if not already
         if (moduleId) {
-          await pool.request()
+          const assignResult = await pool.request()
             .input('userId', sql.Int, userId)
             .input('moduleId', sql.Int, moduleId)
             .query(`
               IF NOT EXISTS (SELECT 1 FROM UserModules WHERE user_id = @userId AND module_id = @moduleId)
               INSERT INTO UserModules (user_id, module_id) VALUES (@userId, @moduleId)
             `);
+          console.log('Module assignment completed for user:', userId);
         }
       } catch (modErr) {
         // Non-fatal: log and continue
         console.error('Assign espace_candidat module error:', modErr);
+        console.error('Error details:', modErr.message);
+        console.error('Stack trace:', modErr.stack);
       }
     }
 
     res.status(200).json({ message: "User updated successfully." });
   } catch (error) {
     console.error("Admin update user error:", error);
+    console.error("Error details:", error.message);
+    console.error("Stack trace:", error.stack);
     res.status(500).json({ message: "Server error updating user." });
   }
 };
@@ -504,20 +516,71 @@ export const setUserModules = async (req, res) => {
   if (!Array.isArray(moduleIds)) {
     return res.status(400).json({ message: 'moduleIds must be an array.' });
   }
+  let tx; // Declare tx here
   try {
     const pool = await connectToDB();
-    const tx = new sql.Transaction(pool);
+    tx = new sql.Transaction(pool); // Assign tx here
     await tx.begin();
-    const reqTx = new sql.Request(tx);
-    await reqTx.input('userId', sql.Int, userId).query('DELETE FROM UserModules WHERE user_id = @userId');
+
+    // Delete existing modules
+    const deleteReq = new sql.Request(tx);
+    await deleteReq.input('userId', sql.Int, userId).query('DELETE FROM UserModules WHERE user_id = @userId');
+
+    // Insert new modules
     for (const mid of moduleIds) {
-      await reqTx.input('userId', sql.Int, userId).input('moduleId', sql.Int, mid).query('INSERT INTO UserModules (user_id, module_id) VALUES (@userId, @moduleId)');
+      const insertReq = new sql.Request(tx);
+      await insertReq.input('userId', sql.Int, userId).input('moduleId', sql.Int, mid).query('INSERT INTO UserModules (user_id, module_id) VALUES (@userId, @moduleId)');
     }
+
     await tx.commit();
     res.status(200).json({ message: 'User modules updated.' });
   } catch (error) {
     console.error('Set user modules error:', error);
-    try { /* ignore */ } catch {}
+    try {
+      if (tx) await tx.rollback(); // Rollback only if transaction was started
+    } catch (rollbackErr) {
+      console.error('Rollback error:', rollbackErr);
+    }
     res.status(500).json({ message: 'Server error updating user modules.' });
+  }
+};
+
+// Create gestion_offres module if it doesn't exist
+export const createGestionOffresModule = async (req, res) => {
+  try {
+    const pool = await connectToDB();
+    
+    // Check if module exists
+    const checkResult = await pool.request()
+      .input('moduleName', sql.NVarChar, 'gestion_offres')
+      .query(`SELECT module_id FROM Modules WHERE module_name = @moduleName`);
+    
+    if (checkResult.recordset.length > 0) {
+      return res.status(200).json({ 
+        message: 'Module already exists', 
+        module_id: checkResult.recordset[0].module_id 
+      });
+    }
+    
+    // Create the module
+    const result = await pool.request()
+      .input('moduleName', sql.NVarChar, 'gestion_offres')
+      .input('description', sql.NVarChar, 'Gestion des offres d\'emploi')
+      .input('routePrefix', sql.NVarChar, '/offers')
+      .query(`
+        INSERT INTO Modules (module_name, description, route_prefix)
+        OUTPUT INSERTED.module_id AS module_id
+        VALUES (@moduleName, @description, @routePrefix)
+      `);
+    
+    const moduleId = result.recordset[0].module_id;
+    
+    res.status(201).json({ 
+      message: 'Module created successfully', 
+      module_id: moduleId 
+    });
+  } catch (error) {
+    console.error('Create gestion_offres module error:', error);
+    res.status(500).json({ message: 'Server error creating module.' });
   }
 };

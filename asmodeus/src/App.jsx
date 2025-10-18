@@ -5,6 +5,7 @@ import Espacecandidat from "./pages/Espacecandidat.jsx";
 import Register from "./pages/Register.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
+import OfferDashboard from "./pages/OfferDashboard.jsx";
 import Navbar from "./components/Navbar.jsx";
 import Offres from "./pages/Offres.jsx";
 
@@ -19,6 +20,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/espace" element={<Espacecandidat />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/offers" element={<OfferDashboard />} />
         <Route path="/offres" element={<Offres />} />
       </Routes>
     </Router>

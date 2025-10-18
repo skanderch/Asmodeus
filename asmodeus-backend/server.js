@@ -1,12 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { connectToDB } from './config/database.js';
+import { connectToDB, closeDB } from './config/database.js';
 import { generateCSRFToken } from './middleware/csrf.js';
 import dotenv from 'dotenv';
 dotenv.config();
 import userRoutes from './routes/userRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
+import offerRoutes from './routes/offerRoutes.js';
 
 const app = express();
 app.use(cors({
@@ -32,8 +33,31 @@ app.use(generateCSRFToken);
 
 app.use('/api/users', userRoutes);
 app.use('/api/applications', applicationRoutes);
+app.use('/api/offers', offerRoutes);
 
-app.listen(PORT, async () => {
-  await connectToDB();
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+const server = app.listen(PORT, async () => {
+  try {
+    await connectToDB();
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(async () => {
+    await closeDB();
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down gracefully');
+  server.close(async () => {
+    await closeDB();
+    process.exit(0);
+  });
 });

@@ -9,7 +9,8 @@ import {
   FaUser, 
   FaCog, 
   FaSignOutAlt,
-  FaChevronDown
+  FaChevronDown,
+  FaClipboardList
 } from "react-icons/fa";
 import "./Navbar.css";
 
@@ -17,6 +18,7 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState(null);
+  const [userModules, setUserModules] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -24,6 +26,26 @@ function Navbar() {
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     setUser(storedUser ? JSON.parse(storedUser) : null);
+    
+    // Load user modules if user is logged in
+    if (storedUser) {
+      const fetchUserModules = async () => {
+        try {
+          const res = await fetch('http://localhost:5000/api/users/me/modules', { 
+            credentials: 'include' 
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setUserModules((data.modules || []).map(m => m.module_name));
+          }
+        } catch (error) {
+          console.error('Error fetching user modules:', error);
+        }
+      };
+      fetchUserModules();
+    } else {
+      setUserModules([]);
+    }
   }, [location]); // se déclenche à chaque changement d'URL
 
   // Close dropdown when clicking outside
@@ -121,6 +143,13 @@ function Navbar() {
                 </Link>
               )}
               
+              {(user.role_id === 1 || userModules.includes('gestion_offres')) && (
+                <Link to="/offers" className="nav-link">
+                  <FaClipboardList className="nav-icon" />
+                  Manage Offers
+                </Link>
+              )}
+              
               {user.role_id === 1 && (
                 <Link to="/admin" className="nav-link admin-link">
                   <FaCog className="nav-icon" />
@@ -172,6 +201,13 @@ function Navbar() {
                     <Link to="/espace" className="dropdown-item" onClick={closeProfileDropdown}>
                       <FaUser className="dropdown-icon" />
                       Mon Espace
+                    </Link>
+                  )}
+                  
+                  {(user.role_id === 1 || userModules.includes('gestion_offres')) && (
+                    <Link to="/offers" className="dropdown-item" onClick={closeProfileDropdown}>
+                      <FaClipboardList className="dropdown-icon" />
+                      Manage Offers
                     </Link>
                   )}
                   
@@ -230,6 +266,13 @@ function Navbar() {
                     <Link to="/espace" className="mobile-nav-link" onClick={closeMobileMenu}>
                       <FaUser className="mobile-nav-icon" />
                       Mon Espace
+                    </Link>
+                  )}
+                  
+                  {(user.role_id === 1 || userModules.includes('gestion_offres')) && (
+                    <Link to="/offers" className="mobile-nav-link" onClick={closeMobileMenu}>
+                      <FaClipboardList className="mobile-nav-icon" />
+                      Manage Offers
                     </Link>
                   )}
                   
