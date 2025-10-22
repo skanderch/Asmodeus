@@ -254,6 +254,28 @@ function OfferDashboard() {
     }
   };
 
+  const handlePublishOffer = async (offer) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/offers/${offer.job_id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statut: "Publié" })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.message || "Failed to publish offer");
+      } else {
+        setMessage("Offer published successfully");
+        fetchOffers();
+        fetchOfferStats();
+      }
+    } catch (err) {
+      console.error("Publish offer error:", err);
+      setMessage("Error connecting to server");
+    }
+  };
+
   const getOfferStatusColor = (status) => {
     switch (status) {
       case "Publié": return "status-active";
@@ -401,6 +423,14 @@ function OfferDashboard() {
                             >
                               Edit
                             </button>
+                            {offer.statut !== "Publié" && (
+                              <button
+                                onClick={() => handlePublishOffer(offer)}
+                                className="btn-success btn-sm"
+                              >
+                                Publish
+                              </button>
+                            )}
                             <button 
                               onClick={() => handleDeleteOffer(offer)}
                               className="btn-danger btn-sm"

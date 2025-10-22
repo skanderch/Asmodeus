@@ -3,6 +3,8 @@ import { connectToDB } from '../config/database.js';
 import bcrypt from 'bcrypt';
 import { generateToken } from '../middleware/auth.js';
 import { connectToDB as db } from '../config/database.js';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 
 export const registerUser = async (req, res) => {
   const { username, password_hash, full_name, email } = req.body;
@@ -252,33 +254,141 @@ export const forgotPassword = async (req, res) => {
   
   try {
     const pool = await connectToDB();
-    
     const result = await pool.request()
       .input("email", sql.VarChar, email)
       .query("SELECT user_id, username, email FROM Users WHERE email = @email");
-    
     const user = result.recordset[0];
-    
-    if (!user) {
-      // Don't reveal if email exists or not for security
-      return res.status(200).json({ 
-        message: "If an account with that email exists, password reset instructions have been sent." 
+
+    // Always respond success, but if user exists generate and email a token
+    if (user) {
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
+
+      // Ensure PasswordResetTokens table exists, then insert
+      await pool.request().query(`
+        IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='PasswordResetTokens' AND xtype='U')
+        CREATE TABLE PasswordResetTokens (
+          token_id INT IDENTITY(1,1) PRIMARY KEY,
+          user_id INT NOT NULL,
+          token NVARCHAR(128) NOT NULL,
+          expires_at DATETIME2 NOT NULL,
+          used BIT NOT NULL DEFAULT 0,
+          created_at DATETIME2 NOT NULL DEFAULT GETDATE()
+        )
+      `);
+
+      await pool.request()
+        .input('user_id', sql.Int, user.user_id)
+        .input('token', sql.NVarChar, token)
+        .input('expires_at', sql.DateTime2, expiresAt)
+        .query(`INSERT INTO PasswordResetTokens (user_id, token, expires_at) VALUES (@user_id, @token, @expires_at)`);
+
+      // Send email with reset link
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT || 587),
+        secure: Boolean(process.env.SMTP_SECURE === 'true'),
+        auth: process.env.SMTP_USER && process.env.SMTP_PASS ? {
+          user: (process.env.SMTP_USER || '').trim(),
+          pass: (process.env.SMTP_PASS || '').trim()
+        } : undefined
       });
+
+      const appBaseUrl = process.env.APP_BASE_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
+      const resetUrl = `${appBaseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+      try {
+        // Verify SMTP connection first for clearer errors
+        await transporter.verify();
+        console.log('SMTP connection verified:', {
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT,
+          secure: process.env.SMTP_SECURE,
+          user: process.env.SMTP_USER ? 'present' : 'missing',
+          from: process.env.SMTP_FROM || process.env.SMTP_USER
+        });
+
+        await transporter.sendMail({
+          from: (process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@asmodeus.local').trim(),
+          replyTo: (process.env.SMTP_FROM || process.env.SMTP_USER || '').trim() || undefined,
+          to: user.email,
+          subject: 'Password Reset Instructions',
+          text: `Hello ${user.username},\n\nWe received a request to reset your password. Use the link below to set a new password. This link will expire in 1 hour.\n\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+          html: `
+            <p>Hello ${user.username},</p>
+            <p>We received a request to reset your password. Click the link below to set a new password. This link will expire in 1 hour.</p>
+            <p><a href="${resetUrl}">Reset your password</a></p>
+            <p>If you did not request this, you can safely ignore this email.</p>
+          `
+        });
+        console.log('Password reset email queued for:', user.email);
+      } catch (mailErr) {
+        console.error('Error sending reset email:', mailErr?.message || mailErr);
+        if (mailErr && mailErr.response) {
+          console.error('SMTP response:', mailErr.response);
+        }
+        if (mailErr && mailErr.code) {
+          console.error('SMTP code:', mailErr.code);
+        }
+        // Continue; we still return generic success for security
+      }
     }
-    
-    // In a real application, you would:
-    // 1. Generate a secure reset token
-    // 2. Store it in the database with expiration
-    // 3. Send an email with the reset link
-    
-    // For now, we'll just return a success message
-    res.status(200).json({ 
-      message: "Password reset instructions have been sent to your email address." 
+
+    return res.status(200).json({ 
+      message: "If an account with that email exists, password reset instructions have been sent." 
     });
     
   } catch (error) {
     console.error("Forgot password error:", error);
     res.status(500).json({ message: "Server error processing password reset." });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  const { token, new_password } = req.body;
+  if (!token || !new_password) {
+    return res.status(400).json({ message: 'Token and new_password are required.' });
+  }
+
+  try {
+    const pool = await connectToDB();
+    const tokenResult = await pool.request()
+      .input('token', sql.NVarChar, token)
+      .query(`
+        SELECT TOP 1 prt.token_id, prt.user_id, prt.expires_at, prt.used, u.user_id AS uid
+        FROM PasswordResetTokens prt
+        JOIN Users u ON u.user_id = prt.user_id
+        WHERE prt.token = @token
+        ORDER BY prt.token_id DESC
+      `);
+
+    const row = tokenResult.recordset[0];
+    if (!row) {
+      return res.status(400).json({ message: 'Invalid or expired token.' });
+    }
+    if (row.used) {
+      return res.status(400).json({ message: 'This reset link has already been used.' });
+    }
+    if (new Date(row.expires_at) < new Date()) {
+      return res.status(400).json({ message: 'Token expired.' });
+    }
+
+    const hashed = await bcrypt.hash(new_password, 10);
+
+    // Update password and mark token used in a transaction-like sequence
+    await pool.request()
+      .input('uid', sql.Int, row.user_id)
+      .input('password_hash', sql.VarChar, hashed)
+      .query('UPDATE Users SET password_hash = @password_hash WHERE user_id = @uid');
+
+    await pool.request()
+      .input('tokenId', sql.Int, row.token_id)
+      .query('UPDATE PasswordResetTokens SET used = 1 WHERE token_id = @tokenId');
+
+    return res.status(200).json({ message: 'Password has been reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({ message: 'Server error resetting password.' });
   }
 };
 

@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerUser, loginUser, logoutUser, getProfile, getAllUsers, updateUserStatus, forgotPassword, createUserAdmin, updateUserAdmin, deleteUserAdmin, getCurrentUserModules, listModules, getUserModules, setUserModules, createGestionOffresModule } from '../controllers/userController.js';
+import { registerUser, loginUser, logoutUser, getProfile, getAllUsers, updateUserStatus, forgotPassword, resetPassword, createUserAdmin, updateUserAdmin, deleteUserAdmin, getCurrentUserModules, listModules, getUserModules, setUserModules, createGestionOffresModule } from '../controllers/userController.js';
 import { verifyToken, requireAdmin, requireModule } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -9,6 +9,7 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.post('/logout', logoutUser);
 router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 // Protected routes
 router.get('/profile', verifyToken, getProfile);
