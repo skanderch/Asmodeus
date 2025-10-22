@@ -107,7 +107,48 @@ export const getPublicOffers = async (req, res) => {
   }
 };
 
-// Get single offer by ID
+// Get single offer by ID (public - only published offers)
+export const getPublicOfferById = async (req, res) => {
+  const { offerId } = req.params;
+  
+  try {
+    const pool = await connectToDB();
+    
+    const result = await pool.request()
+      .input('offerId', sql.Int, offerId)
+      .query(`
+        SELECT 
+          o.job_id,
+          o.titre,
+          o.description,
+          o.competences_requises,
+          o.lieu,
+          o.entreprise,
+          o.statut,
+          o.date_creation,
+          o.salaire,
+          o.langues,
+          o.type_contrat,
+          o.departement,
+          o.experience,
+          o.teletravail,
+          o.date_fin
+        FROM offres o
+        WHERE o.job_id = @offerId AND o.statut = 'Publié'
+      `);
+    
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'Offer not found or not published.' });
+    }
+    
+    res.status(200).json({ offer: result.recordset[0] });
+  } catch (error) {
+    console.error('Get public offer error:', error);
+    res.status(500).json({ message: 'Server error getting offer.' });
+  }
+};
+
+// Get single offer by ID (admin/management - all offers)
 export const getOfferById = async (req, res) => {
   const { offerId } = req.params;
   

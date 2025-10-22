@@ -25,7 +25,7 @@ function Offres() {
 
   const fetchOffers = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/offers/public", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/offers/public`, {
         credentials: "include",
         headers: {
           "Content-Type": "application/json"
@@ -61,7 +61,7 @@ function Offres() {
     }
     // Backend enforcement: only candidates can apply
     try {
-      const response = await fetch("http://localhost:5000/api/applications", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/applications`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -98,8 +98,12 @@ function Offres() {
       const offer = offers.find((o) => o.job_id === offerId);
       const already = existing.some((e) => e.job_id === offerId);
       const next = already || !offer ? existing : [...existing, offer];
+      console.log('Storing application with key:', key);
+      console.log('Offer being stored:', offer);
+      console.log('Applications after storage:', next);
       localStorage.setItem(key, JSON.stringify(next));
-    } catch {
+    } catch (error) {
+      console.error('Storage error:', error);
       // ignore storage errors and still navigate
     }
     navigate("/espace");
@@ -108,26 +112,31 @@ function Offres() {
   if (loading) {
     return (
       <div className="offres-page">
-        <h1>Offres d'emploi</h1>
-        <p>Chargement des offres...</p>
+        <div className="offres-header">
+          <h1>Opportunités de Carrière</h1>
+          <p>Chargement des offres...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="offres-page">
-      <h1>Offres d'emploi</h1>
-      <p>
-        Consultez nos opportunités. Vous devez être connecté pour postuler.
-        {!isCandidate && (
-          <span className="role-note"> — Seuls les candidats peuvent postuler.</span>
-        )}
-      </p>
+      <div className="offres-header">
+        <h1>Opportunités de Carrière</h1>
+        <p>
+          Découvrez les meilleures opportunités d'emploi qui correspondent à vos compétences et aspirations professionnelles.
+          {!isCandidate && (
+            <span className="role-note">Seuls les candidats peuvent postuler</span>
+          )}
+        </p>
+      </div>
       {message && <div className="role-warning">{message}</div>}
       
       {offers.length === 0 ? (
         <div className="no-offers">
-          <p>Aucune offre d'emploi disponible pour le moment.</p>
+          <h2>🔍 Aucune offre disponible</h2>
+          <p>Il n'y a actuellement aucune offre d'emploi publiée. Revenez bientôt pour découvrir de nouvelles opportunités !</p>
         </div>
       ) : (
         <div className="offers-grid">
@@ -135,11 +144,9 @@ function Offres() {
             <div key={offer.job_id} className="offer-card">
               <h3>{offer.titre}</h3>
               <div className="offer-meta">
-                <span>{offer.entreprise}</span>
+                <span className="company-name">{offer.entreprise}</span>
                 <span>•</span>
-                <span>{offer.lieu || "Non spécifié"}</span>
-                {offer.teletravail && <span>•</span>}
-                {offer.teletravail && <span className="remote-badge">Remote</span>}
+                <span className="location">{offer.lieu || "Non spécifié"}</span>
               </div>
               <p className="offer-description">
                 {offer.description ? 
@@ -150,27 +157,41 @@ function Offres() {
                   "Aucune description disponible."
                 }
               </p>
-              {offer.salaire && (
-                <div className="offer-salary">
-                  <strong>Salaire:</strong> {offer.salaire}
-                </div>
-              )}
-              {offer.type_contrat && (
-                <div className="offer-contract">
-                  <strong>Type de contrat:</strong> {offer.type_contrat}
-                </div>
-              )}
+              
+              <div className="offer-details">
+                {offer.salaire && (
+                  <div className="offer-salary">
+                    <strong>💰</strong> {offer.salaire}
+                  </div>
+                )}
+                {offer.type_contrat && (
+                  <div className="offer-contract">
+                    <strong>📋</strong> {offer.type_contrat}
+                  </div>
+                )}
+                {offer.experience && (
+                  <div className="offer-experience">
+                    <strong>⭐</strong> {offer.experience}
+                  </div>
+                )}
+                {offer.teletravail && (
+                  <div className="remote-badge">Télétravail</div>
+                )}
+              </div>
               <div className="offer-actions">
-                <button className="btn-secondary" onClick={() => navigate(`/offres/${offer.job_id}`)}>
-                  Détails
+                <button 
+                  className="btn-secondary" 
+                  onClick={() => navigate(`/offres/${offer.job_id}`)}
+                >
+                  Voir Détails
                 </button>
                 <button
                   className={`btn-primary ${!isCandidate ? "btn-disabled" : ""}`}
                   onClick={() => handleApply(offer.job_id)}
                   disabled={!isCandidate}
-                  title={!isCandidate ? "Seuls les candidats peuvent postuler" : "Postuler"}
+                  title={!isCandidate ? "Seuls les candidats peuvent postuler" : "Postuler à cette offre"}
                 >
-                  Postuler
+                  {!isCandidate ? "Non éligible" : "Postuler"}
                 </button>
               </div>
             </div>

@@ -36,7 +36,11 @@ function Espacecandidat() {
       setUser(parsed);
       if (storageKey) {
         const rawApps = localStorage.getItem(storageKey);
-        setApplications(rawApps ? JSON.parse(rawApps) : []);
+        const apps = rawApps ? JSON.parse(rawApps) : [];
+        console.log('Storage key:', storageKey);
+        console.log('Raw applications:', rawApps);
+        console.log('Parsed applications:', apps);
+        setApplications(apps);
       }
     } catch {
       navigate("/login");
@@ -57,17 +61,17 @@ function Espacecandidat() {
       ) : (
         <div className="applications-list">
           {applications.map((offer) => (
-            <div key={offer.id} className="application-item">
+            <div key={offer.job_id} className="application-item">
               <div>
-                <h3 className="offer-title">{offer.title}</h3>
+                <h3 className="offer-title">{offer.titre}</h3>
                 <div className="offer-meta">
-                  <span>{offer.company}</span>
+                  <span>{offer.entreprise}</span>
                   <span>•</span>
-                  <span>{offer.location}</span>
+                  <span>{offer.lieu}</span>
                 </div>
               </div>
               <div className="application-actions">
-                <button className="btn-secondary" onClick={() => navigate(`/offres/${offer.id}`)}>Détails</button>
+                <button className="btn-secondary" onClick={() => navigate(`/offres/${offer.job_id}`)}>Détails</button>
               </div>
             </div>
           ))}

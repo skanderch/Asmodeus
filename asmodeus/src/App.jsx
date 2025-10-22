@@ -9,6 +9,7 @@ import AdminDashboard from "./pages/AdminDashboard.jsx";
 import OfferDashboard from "./pages/OfferDashboard.jsx";
 import Navbar from "./components/Navbar.jsx";
 import Offres from "./pages/Offres.jsx";
+import OfferDetails from "./pages/OfferDetails.jsx";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/offers" element={<OfferDashboard />} />
         <Route path="/offres" element={<Offres />} />
+        <Route path="/offres/:id" element={<OfferDetails />} />
       </Routes>
     </Router>
   );

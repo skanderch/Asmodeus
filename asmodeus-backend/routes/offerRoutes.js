@@ -1,11 +1,14 @@
 import express from 'express';
-import { getAllOffers, getPublicOffers, getOfferById, createOffer, updateOffer, deleteOffer, getOfferStats, testDatabase } from '../controllers/offerController.js';
+import { getAllOffers, getPublicOffers, getPublicOfferById, getOfferById, createOffer, updateOffer, deleteOffer, getOfferStats, testDatabase } from '../controllers/offerController.js';
 import { verifyToken, requireAdmin, requireModule } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Public route for candidates to view published offers
 router.get('/public', getPublicOffers);
+
+// Public route for individual offer details (for candidates)
+router.get('/public/:offerId', getPublicOfferById);
 
 // Test database connection and table structure
 router.get('/test-db', testDatabase);
